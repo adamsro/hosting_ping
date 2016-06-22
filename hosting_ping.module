@@ -59,7 +59,7 @@ function hosting_ping_form_alter(&$form, $form_state, $form_id) {
     $form['ping_url'] = array(
       '#type' => 'textfield',
       '#title' => t('URL to ping'),
-      '#description' => t('keep cache fresh. If set, then ping this URL every 1 min.'),
+      '#description' => t('Keep the cache fresh. If set, then ping this URL every 1 min.'),
       '#default_value' => isset($form['#node']->ping_url) ? $form['#node']->ping_url : '',
       );
     return $form;
@@ -134,7 +134,7 @@ function hosting_ping_node_view($node, $view_mode, $langcode) {
         '#type' => 'item',
         '#title' => t('Last ping'),
         '#weight' => 25,
-        '#markup' => hosting_format_interval($node->last_ping) . '<br>HTTP code: ' . $node->last_ping_code,
+        '#markup' => hosting_format_interval($node->last_ping) . '<br>HTTP code: <strong>' . $node->last_ping_code . '</strong>',
       );
     }
   }
