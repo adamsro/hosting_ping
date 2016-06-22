@@ -39,10 +39,12 @@ function hosting_ping_queue($count) {
       curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
       $data = curl_exec($ch);
+      $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
       // Dont bother to check result.
       db_update('hosting_ping')
       ->fields(array(
         'last_ping' => REQUEST_TIME,
+        'last_ping_code' => $httpcode,
         ))
       ->condition('nid', $site->nid)
       ->execute();
@@ -111,12 +113,29 @@ function hosting_ping_node_delete($node) {
 function hosting_ping_node_load($nodes, $types) {
   if (in_array('site', $types)) {
     foreach ($nodes as $nid => $node) {
-      $additions = db_query("SELECT ping_url FROM {hosting_ping} WHERE vid = :vid", array(':vid' => $node->vid))->fetchAssoc();
+      $additions = db_query("SELECT * FROM {hosting_ping} WHERE vid = :vid", array(':vid' => $node->vid))->fetchAssoc();
       if (!empty($additions)) {
         foreach ($additions as $key => $value) {
           $nodes[$nid]->$key = $value;
         }
       }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function hosting_ping_node_view($node, $view_mode, $langcode) {
+  if ($node->type == 'site') {
+    if ($view_mode != 'teaser') {
+      // @todo : turn it into x minutes ago
+      $node->content['info']['last_ping'] = array(
+        '#type' => 'item',
+        '#title' => t('Last ping'),
+        '#weight' => 25,
+        '#markup' => hosting_format_interval($node->last_ping) . '<br>HTTP code: ' . $node->last_ping_code,
+      );
     }
   }
 }

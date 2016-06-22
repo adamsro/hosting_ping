@@ -28,8 +28,13 @@ function hosting_ping_schema() {
         'length' => 128,
         'not null' => FALSE,
       ),
-      'last_cron' => array(
+      'last_ping' => array(
         'type' => 'int',
+        'not null' => FALSE,
+      ),
+      'last_ping_code' => array(
+        'type' => 'varchar',
+        'length' => 128,
         'not null' => FALSE,
       ),
     ),
