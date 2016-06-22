@@ -1,0 +1,122 @@
+<?php
+/**
+ * @file Marshall Adams, CPA Gardens
+ */
+
+/**
+ * Implements hook_hosting_queues().
+ */
+function hosting_ping_hosting_queues() {
+  $items['ping'] = array(
+    'type' => 'batch',
+    'name' => t('Ping queue'),
+    'description' => t('Run ping on hosted sites.'),
+    'total_items' => hosting_site_count(),
+    'frequency' => strtotime("1 min", 0),
+    'min_threads' => 6,
+    'max_threads' => 12,
+    'threshold' => 100,
+    'singular' => t('site'),
+    'plural' => t('sites'),
+  );
+  return $items;
+}
+
+/**
+ * Implements hosting_QUEUE_TYPE_queue().
+ */
+function hosting_ping_queue($count) {
+  $result = db_query("SELECT n.nid FROM {node} n LEFT JOIN {hosting_site} s ON n.nid=s.nid WHERE n.type = :type and s.status = :status ORDER BY s.last_cron ASC, n.nid ASC", array(':type' => 'site', ':status' => HOSTING_SITE_ENABLED));
+
+  $i = 0;
+  while ($i < $count && $nid = $result->fetch()) {
+    $site = node_load($nid->nid);
+    if (!empty($site->ping_url)) {
+      $ch = curl_init($site->ping_url);
+      curl_setopt($ch, CURLOPT_USERAGENT, "Aegir Hosting Ping");
+      curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+      curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+      curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      $data = curl_exec($ch);
+      // Dont bother to check result.
+      db_update('hosting_ping')
+      ->fields(array(
+        'last_ping' => REQUEST_TIME,
+        ))
+      ->condition('nid', $site->nid)
+      ->execute();
+    }
+  }
+}
+/**
+ * Implements hook_form_alter().
+ */
+function hosting_ping_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'site_node_form') {
+    $form['ping_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('URL to ping'),
+      '#description' => t('keep cache fresh. If set, then ping this URL every 1 min.'),
+      '#default_value' => isset($form['#node']->ping_url) ? $form['#node']->ping_url : '',
+      );
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function hosting_ping_node_insert($node) {
+  if ($node->type == 'site' && !empty($node->ping_url)) {
+    $id = db_insert('hosting_ping')
+    ->fields(array(
+      'vid' => $node->vid,
+      'nid' => $node->nid,
+      'ping_url' => $node->ping_url,
+    ))
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function hosting_ping_node_update($node) {
+  if ($node->type == 'site') {
+    db_merge('hosting_ping')
+    ->key(array('vid' => $node->vid))
+    ->fields(array(
+      'nid' => $node->nid,
+      'ping_url' => $node->ping_url,
+      ))
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function hosting_ping_node_delete($node) {
+  if ($node->type == 'site') {
+    db_delete('hosting_ping')
+    ->condition('nid', $node->nid)
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_load().
+ */
+function hosting_ping_node_load($nodes, $types) {
+  if (in_array('site', $types)) {
+    foreach ($nodes as $nid => $node) {
+      $additions = db_query("SELECT ping_url FROM {hosting_ping} WHERE vid = :vid", array(':vid' => $node->vid))->fetchAssoc();
+      if (!empty($additions)) {
+        foreach ($additions as $key => $value) {
+          $nodes[$nid]->$key = $value;
+        }
+      }
+    }
+  }
+}

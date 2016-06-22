@@ -1,0 +1,5 @@
+name = Ping URL
+description = Keep cache fresh via simple ping
+package = Hosting
+dependencies[] = hosting_site
+core = 7.x
