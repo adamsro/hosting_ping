@@ -32,15 +32,7 @@ function hosting_ping_queue($count) {
   while ($i < $count && $nid = $result->fetch()) {
     $site = node_load($nid->nid);
     if (!empty($site->ping_url)) {
-      $ch = curl_init($site->ping_url);
-      curl_setopt($ch, CURLOPT_USERAGENT, "Aegir Hosting Ping");
-      curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-      curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-      curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      $data = curl_exec($ch);
-      $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-      // Dont bother to check result.
+      $httpcode = shell_exec("wget -r -l1  -R gif,png,jpg,pdf,js,css --server-response --header='Accept: text/html' --user-agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0' {$site->ping_url}  2>&1 | grep -m 1 'HTTP/' | awk '{print $2}' | tr -d '\n'");
       db_update('hosting_ping')
       ->fields(array(
         'last_ping' => REQUEST_TIME,
